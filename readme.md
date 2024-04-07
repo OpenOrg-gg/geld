@@ -18,12 +18,13 @@ The second is by updating the internal proof check mechanism, which can be route
 Geld is deeply inspired by, and based on the code of 0xBitcoin, with a number of changes:
 
 -Users now earn "mining skill exp" when they mine
--Users can equip different tiers of "pickaxes" represented by ERC-20 tokens that provide bonuses to their exp and the amount the earn when mining.
+-Users can equip different tiers of "pickaxes" represented by ERC-20 tokens that provide bonuses to their exp and the amount the earn when mining. **note**: pickaxes won't be live on day one, still need an interface for them.
 -A users pickaxe balance declines (representing durability) with each successful mining attempt.
 -The rate of their pickaxe declining is influenced by their overall mining level.
 -Geld and pickaxes have fee on swap mechanics, inspired by Unibot.
 -The revenue sharing fee from pickaxes and other future game items flow to Geld holders.
 -Future high tier items are only purchasable in Geld.
+-Future addons will include crafting of mining supplies, and other random adventures.
 
 The goal here is to make a prototype of either a PoW token or game, in which users simply don't care about the other function taking place underneath.
 
