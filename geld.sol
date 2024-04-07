@@ -1,4 +1,4 @@
-pragma solidity ^0.7.6;
+pragma solidity ^0.8.0;
 
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
@@ -756,6 +756,10 @@ interface ILevelContract {
     function getLevel(uint256 _user) external view returns(uint256);
 }
 
+interface ISimpleHook {
+    function turnCrank() external;
+}
+
 
 // ----------------------------------------------------------------------------
 
@@ -765,7 +769,7 @@ interface ILevelContract {
 
 // ----------------------------------------------------------------------------
 
-contract BaseGeld is ERC20 {
+contract Geld is ERC20 {
     bool private _isMinting;
     using SafeMath for uint;
     using ExtendedMath for uint;
@@ -773,8 +777,8 @@ contract BaseGeld is ERC20 {
     address owner;
     address expContract;
     address levelContract;
-    address levels;
     address challengeInterface;
+    address simpleHookAddress;
     IUniswapV2Router02 public uniswapV2Router;
     address public uniswapV2Pair;
     address public constant deadAddress = address(0xdead);
@@ -847,7 +851,7 @@ contract BaseGeld is ERC20 {
 
 
     //a little number
-    uint public  _MINIMUM_TARGET = 2**16;
+    uint public  _MINIMUM_TARGET = 2**15;
 
 
       //a big number is easier ; just find a solution that is smaller
@@ -869,6 +873,7 @@ contract BaseGeld is ERC20 {
     uint public lastRewardEthBlockNumber;
 
     bool locked = false;
+    bool mintOn = false;
 
     mapping(bytes32 => bytes32) solutionForChallenge;
 
@@ -906,8 +911,8 @@ contract BaseGeld is ERC20 {
 
         _startNewMiningEpoch();
 
-        super._mint(owner, 100 * 1e18);
-        tokensMinted = 100 * 1e18;
+        super._mint(owner, 300_000_000 * 1e18); //dev share for vesting contract
+        tokensMinted = 300_000_000 * 1e18; //dev share for vesting contract
 
         IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(
             0x2626664c2603336E57B271c5C0b26F421741e481
@@ -925,9 +930,9 @@ contract BaseGeld is ERC20 {
         uint256 _buyLiquidityFee = 1;
         uint256 _buyTeamFee = 2;
 
-        uint256 _sellRevShareFee = 2;
-        uint256 _sellLiquidityFee = 1;
-        uint256 _sellTeamFee = 2;
+        uint256 _sellRevShareFee = 1;
+        uint256 _sellLiquidityFee = 4;
+        uint256 _sellTeamFee = 3;
 
         buyRevShareFee = _buyRevShareFee;
         buyLiquidityFee = _buyLiquidityFee;
@@ -957,15 +962,26 @@ contract BaseGeld is ERC20 {
 
         preMigrationTransferrable[owner] = true;
         _isMinting = false;
+        mintOn = true;
 
-        levelContract = address(0x17c7449e31EEe4C24216b170BaE5D0B3Bfd72476);
-        expContract = address(0x3422FA85D0b48e44d2aFC1b528C8C4979Bb2E610);
+        levelContract = address(0x093715626d39bDda8c30e3e6C833940e1F8ef213);
+        expContract = address(0xcB96f3a5F80844d0921a7Ed2D570d735f0536bD9);
 
     }
 
     function setMiningPick(address _address, uint256 _class) public {
         require(msg.sender == owner);
         miningPickClassAddress[_address] = _class;
+    }
+
+    function setSimpleHook(address _address) public {
+        require(msg.sender == owner);
+        simpleHookAddress = _address;
+    }
+
+    function setMint(bool _bool) public {
+        require(msg.sender == owner);
+        mintOn = _bool;
     }
 
     function setMiningPickToAddress(address _address, uint256 _class) public {
@@ -1013,7 +1029,11 @@ contract BaseGeld is ERC20 {
 
         function mint(uint256 nonce, bytes32 challenge_digest, uint256 challengeType) public returns (bool success) {
             require(!_isMinting, "Minting already in progress");
+            require(mintOn == true);
             _isMinting = true;
+            if(simpleHookAddress != address(0)){
+                ISimpleHook(simpleHookAddress).turnCrank();
+            }
             if(challengeInterface == address(0)){
 
                 //the PoW must contain work that includes a recent ethereum block hash (challenge number) and the msg.sender's address to prevent MITM attacks
@@ -1039,9 +1059,7 @@ contract BaseGeld is ERC20 {
                     uint256 burnAmt = 1e18 * (100 - lvl) / 100;
                     if(miningPickBalance[msg.sender] >= burnAmt){
                         miningPickBalance[msg.sender] -= burnAmt;
-                        IERC20(miningPickClassToAddress[miningPickClass[msg.sender]]).transferFrom(address(this), address(0x000000000000000000000000000000000000dEaD), burnAmt);
                     } else {
-                        IERC20(miningPickClassToAddress[miningPickClass[msg.sender]]).transferFrom(address(this), address(0x000000000000000000000000000000000000dEaD), miningPickBalance[msg.sender]);
                         miningPickBalance[msg.sender] = 0;
                     }
                 }
@@ -1094,9 +1112,7 @@ contract BaseGeld is ERC20 {
                     uint256 burnAmt = ((1e18 * (100 - lvl)) / 100);
                     if(miningPickBalance[msg.sender] >= burnAmt){
                         miningPickBalance[msg.sender] -= burnAmt;
-                        IERC20(miningPickClassToAddress[miningPickClass[msg.sender]]).transferFrom(address(this), address(0x000000000000000000000000000000000000dEaD), burnAmt);
                     } else {
-                        IERC20(miningPickClassToAddress[miningPickClass[msg.sender]]).transferFrom(address(this), address(0x000000000000000000000000000000000000dEaD), miningPickBalance[msg.sender]);
                         miningPickBalance[msg.sender] = 0;
                     }
                 }
