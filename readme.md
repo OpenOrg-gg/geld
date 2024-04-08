@@ -32,16 +32,22 @@ This allows us to arbitrarily spread the cost of various 'crank-turning' mechani
 
 While Geld iself, due to its lack of testing, could break or fail to properly upgrade to this state - the goal is for it to inspire a new design pattern that can be used.
 
-**Note**:
+**Socials**:
 
-At this time, Geld has no public discord, telegram, Twitter or other channels. All updates will be in this repo or from @adamscochran on Twitter
+Discord: https://discord.gg/A7P8gRxX2v
+
+Twitter: https://twitter.com/BaseGeld
+
+DevTwitter: @adamscochran
 
 **Info**:
 
-Geld: 0xb9ed1C3337891a119F7A91BC6a9377B50A50e3D6
+Geld: 0xbC2E1C09c270c5Ccf469E5aD272892c6B9DdB283
 
-Bronze Pick: 0x93FB874026E79009b6CE35ce9FB904EFBd025478
+Bronze Pick: 0x39BD39025b0826D3c67D2CC7A4717E50380FBe8b
+
+Iron Pick: 0xF56F21b2B32d597ab22b4e5aec9ebdAbd72d7c39
 
 Leveling Model: 0xF5adc59f1aFb16dA0c99E5fbfE0DB42CcBD11038
 
-Exp Tracker: 0xD30B9816011c1987814367555E2ad808F1ecCF40
+Exp Tracker: 0xaB4409789FBF1Eb4bf3aca99aB051C3627FA3D65

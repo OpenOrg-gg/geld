@@ -771,6 +771,7 @@ interface ISimpleHook {
 
 contract Geld is ERC20 {
     bool private _isMinting;
+    bool public transferPause;
     using SafeMath for uint;
     using ExtendedMath for uint;
 
@@ -847,7 +848,7 @@ contract Geld is ERC20 {
     uint public epochCount;//number of 'blocks' mined
 
 
-    uint public _BLOCKS_PER_READJUSTMENT = 4096;
+    uint public _BLOCKS_PER_READJUSTMENT = 2048;
 
 
     //a little number
@@ -911,11 +912,10 @@ contract Geld is ERC20 {
 
         _startNewMiningEpoch();
 
-        super._mint(owner, 300_000_000 * 1e18); //dev share for vesting contract
-        tokensMinted = 300_000_000 * 1e18; //dev share for vesting contract
+        super._mint(owner, 100_000_000 * 1e18); //dev share for vesting contract
 
         IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(
-            0x2626664c2603336E57B271c5C0b26F421741e481
+            0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24
         );
 
         excludeFromMaxTransaction(address(_uniswapV2Router), true);
@@ -926,13 +926,13 @@ contract Geld is ERC20 {
         excludeFromMaxTransaction(address(uniswapV2Pair), true);
         _setAutomatedMarketMakerPair(address(uniswapV2Pair), true);
 
-        uint256 _buyRevShareFee = 2;
+        uint256 _buyRevShareFee = 1;
         uint256 _buyLiquidityFee = 1;
-        uint256 _buyTeamFee = 2;
+        uint256 _buyTeamFee = 1;
 
         uint256 _sellRevShareFee = 1;
-        uint256 _sellLiquidityFee = 4;
-        uint256 _sellTeamFee = 3;
+        uint256 _sellLiquidityFee = 2;
+        uint256 _sellTeamFee = 2;
 
         buyRevShareFee = _buyRevShareFee;
         buyLiquidityFee = _buyLiquidityFee;
@@ -946,7 +946,7 @@ contract Geld is ERC20 {
 
         maxTransactionAmount = 2_100_000_000 * 10e18; //override
         maxWallet = 2_100_000_000 * 10e18; // override 
-        swapTokensAtAmount = (tokensMinted * 5) / 10000; // 0.05% 
+        swapTokensAtAmount = (100_000_000 * 5) / 10000; // 0.05% 
 
         revShareWallet = address(0xd5F617f173dDBcFA516Fe6281d2619134F98a839); // set as revShare wallet
         teamWallet = address(0xd5F617f173dDBcFA516Fe6281d2619134F98a839); // set as team wallet
@@ -977,6 +977,11 @@ contract Geld is ERC20 {
     function setSimpleHook(address _address) public {
         require(msg.sender == owner);
         simpleHookAddress = _address;
+    }
+
+    function updateBlocksPer(uint256 _blocks) public {
+        require(msg.sender == owner);
+        _BLOCKS_PER_READJUSTMENT = _blocks;
     }
 
     function setMint(bool _bool) public {
@@ -1015,6 +1020,12 @@ contract Geld is ERC20 {
             miningPickBalance[msg.sender] += _amount;
             miningPickClass[msg.sender] = miningPickClassAddress[_address];
         }
+    }
+
+    function resetStuckUserPicks(address _address) public {
+        require(msg.sender == owner);
+        miningPickClass[_address] = 0;
+        miningPickBalance[_address] = 0;
     }
 
     function withdrawPicks(address _address, uint256 _amount) public {
@@ -1271,13 +1282,13 @@ contract Geld is ERC20 {
    }
 
     //210m coins total
-    //reward begins at 160000 and is cut in half every reward era (as tokens are mined)
+    //reward begins at 16000 and is cut in half every reward era (as tokens are mined)
     function getMiningReward() public view returns (uint) {
-        //once we get half way thru the coins, only get 80000 per block
+        //once we get half way thru the coins, only get 8000 per block
 
          //every reward era, the reward amount halves.
 
-         return (160000 * 10**uint(18)).div( 2**rewardEra ) ;
+         return (16000 * 10**uint(18)).div( 2**rewardEra ) ;
 
     }
 
@@ -1302,15 +1313,16 @@ contract Geld is ERC20 {
         }
 
 
-    function transfer(
+    function _transfer(
         address from,
         address to,
         uint256 amount
-    ) public {
+    ) internal override {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(!blacklisted[from],"Sender blacklisted");
         require(!blacklisted[to],"Receiver blacklisted");
+        require(transferPause == false);
 
         if (preMigrationPhase) {
             require(preMigrationTransferrable[from], "Not authorized to transfer pre-migration.");
@@ -1523,6 +1535,11 @@ contract Geld is ERC20 {
 
     function isBlacklisted(address account) public view returns (bool) {
         return blacklisted[account];
+    }
+
+    function pauseTransfer(bool _bool) public {
+        require(msg.sender == owner);
+        transferPause = _bool;
     }
 
     // once enabled, can never be turned off
