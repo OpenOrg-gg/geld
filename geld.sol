@@ -1038,127 +1038,121 @@ contract Geld is ERC20 {
         }
     }
 
-        function mint(uint256 nonce, bytes32 challenge_digest, uint256 challengeType) public returns (bool success) {
-            require(!_isMinting, "Minting already in progress");
-            require(mintOn == true);
-            _isMinting = true;
-            if(simpleHookAddress != address(0)){
-                ISimpleHook(simpleHookAddress).turnCrank();
-            }
-            if(challengeInterface == address(0)){
+function mint(uint256 nonce, bytes32 challenge_digest, uint256 challengeType) public returns (bool success) {
+    require(!_isMinting, "Minting already in progress");
+    require(mintOn == true);
+    _isMinting = true;
 
-                //the PoW must contain work that includes a recent ethereum block hash (challenge number) and the msg.sender's address to prevent MITM attacks
-                bytes32 digest =  keccak256(abi.encodePacked(challengeNumber, msg.sender, nonce));
+    if (simpleHookAddress != address(0)) {
+        ISimpleHook(simpleHookAddress).turnCrank();
+    }
 
-                //the challenge digest must match the expected
-                if (digest != challenge_digest) revert();
+    bytes32 internalChallengeNumber = challengeNumber;
 
-                //the digest must be smaller than the target
-                if(uint256(digest) > miningTarget) revert();
+    if (challengeInterface == address(0)) {
+        success = mintInternal(nonce, challenge_digest, internalChallengeNumber);
+    } else {
+        success = mintExternal(nonce, challenge_digest, challengeType);
+    }
 
-                //only allow one reward for each challenge
-                bytes32 solution = solutionForChallenge[challengeNumber];
-                solutionForChallenge[challengeNumber] = digest;
-                if(solution != 0x0) revert();  //prevent the same answer from awarding twice
+    if (success) {
+        _startNewMiningEpoch();
+        Mint(msg.sender, lastRewardAmount, epochCount, challengeNumber);
+    }
 
-                uint reward_amount = getMiningReward();
-                uint exp_reward = 1;
+    _isMinting = false;
+    return success;
+}
 
-                if(miningPickClass[msg.sender] != 0){
-                    uint256 exp = IExpContract(expContract).miningExp(msg.sender);
-                    uint256 lvl = ILevelContract(levelContract).getLevel(exp);
-                    uint256 burnAmt = 1e18 * (100 - lvl) / 100;
-                    if(miningPickBalance[msg.sender] >= burnAmt){
-                        miningPickBalance[msg.sender] -= burnAmt;
-                    } else {
-                        miningPickBalance[msg.sender] = 0;
-                    }
-                }
-                if(miningPickClass[msg.sender] != 0 && miningPickBalance[msg.sender]  > 1e18){
-                    reward_amount += (reward_amount * (miningPickClass[msg.sender]) / 100);
-                    if(miningPickClass[msg.sender] >= 2){
-                        exp_reward += (miningPickClass[msg.sender] / 2);
-                    }
-                }
-                
-                super._mint(msg.sender, reward_amount);
-                super._mint(address(this), ((reward_amount * 2) / 100));
-                super._mint(teamWallet, ((reward_amount * 3) / 100));
+function mintInternal(uint256 nonce, bytes32 challenge_digest, bytes32 internalChallengeNumber) internal returns (bool) {
+    // The PoW must contain work that includes a recent ethereum block hash (challenge number) and the msg.sender's address to prevent MITM attacks
+    bytes32 digest = keccak256(abi.encodePacked(challengeNumber, msg.sender, nonce));
 
-                tokensMinted = tokensMinted.add(reward_amount + ((reward_amount * 2) / 100) + ((reward_amount * 3) / 100));
+    // The challenge digest must match the expected
+    require(digest == challenge_digest, "Challenge digest mismatch");
 
-                IExpContract(expContract).updateMining(msg.sender, exp_reward, 0);
+    // The digest must be smaller than the target
+    require(uint256(digest) <= miningTarget, "Digest not small enough");
 
-                //Cannot mint more tokens than there are
-                assert(tokensMinted <= maxSupplyForEra);
+    bytes32 solution = solutionForChallenge[internalChallengeNumber];
+    solutionForChallenge[internalChallengeNumber] = digest;
+    require(solution == 0, "Duplicate solution");  // Prevent the same answer from awarding twice
 
-                //set readonly diagnostics data
-                lastRewardTo = msg.sender;
-                lastRewardAmount = reward_amount;
-                lastRewardEthBlockNumber = block.number;
+    return _processReward();
+}
 
+function mintExternal(uint256 nonce, bytes32 challenge_digest, uint256 challengeType) internal returns (bool) {
+    // The PoW must contain work that includes a recent ethereum block hash (challenge number) and the msg.sender's address to prevent MITM attacks
+    bytes32 digest = keccak256(abi.encodePacked(challengeNumber, msg.sender, nonce));
 
-                _startNewMiningEpoch();
+    (bool pass, uint256 mul) = IChallengeInterface(challengeInterface).challengeCheck(digest, challenge_digest, challengeNumber, msg.sender, nonce, challengeType);
+    if (!pass) {
+        return false;
+    }
 
-                Mint(msg.sender, reward_amount, epochCount, challengeNumber );
-                _isMinting = false;
-                return true;
+    if (mul > 1) {
+        uint256 reward_amount = getMiningReward() * mul;
+        return _processRewardWithAmount(reward_amount);
+    } else {
+        return _processReward();
+    }
+}
 
-            } else {
-       
-                //the PoW must contain work that includes a recent ethereum block hash (challenge number) and the msg.sender's address to prevent MITM attacks
-                bytes32 digest = keccak256(abi.encodePacked(challengeNumber, msg.sender, nonce));
+function _processReward() internal returns (bool) {
+    uint256 reward_amount = getMiningReward();
+    return _processRewardWithAmount(reward_amount);
+}
 
-                (bool pass, uint256 mul) = IChallengeInterface(challengeInterface).challengeCheck(digest, challenge_digest, challengeNumber, msg.sender, nonce, challengeType);
-            
-                uint reward_amount;
-                uint256 exp_reward = 1;
-                if(pass == true){
-                    reward_amount = getMiningReward() * mul;
-                }
+function _processRewardWithAmount(uint256 reward_amount) internal returns (bool) {
+    bytes32 dig = bytes32(0);
+    return _processRewardWithDigestAndAmount(dig, reward_amount);
+}
 
-                if(miningPickClass[msg.sender] > 0){
-                    uint256 exp = IExpContract(expContract).miningExp(msg.sender);
-                    uint256 lvl = ILevelContract(levelContract).getLevel(exp);
-                    uint256 burnAmt = ((1e18 * (100 - lvl)) / 100);
-                    if(miningPickBalance[msg.sender] >= burnAmt){
-                        miningPickBalance[msg.sender] -= burnAmt;
-                    } else {
-                        miningPickBalance[msg.sender] = 0;
-                    }
-                }
-                if(miningPickClass[msg.sender] > 0 && miningPickBalance[msg.sender] > 1e18){
-                    reward_amount += (reward_amount * (miningPickClass[msg.sender]) / 100);
-                    if(miningPickClass[msg.sender] >= 2){
-                        exp_reward += (miningPickClass[msg.sender] / 2);
-                    }
-                }
+function _processRewardWithDigestAndAmount(bytes32 digest, uint256 reward_amount) internal returns (bool) {
+    uint256 exp_reward = _updateMiningPick(reward_amount);
+    _mint(msg.sender, reward_amount);
+    _payOutRewards(reward_amount);
+    _setLastRewardData(reward_amount);
+    IExpContract(expContract).updateMining(msg.sender, exp_reward, 0);
 
+    assert(tokensMinted <= maxSupplyForEra);
+    return true;
+}
 
-                super._mint(msg.sender, reward_amount);
-                super._mint(address(this), ((reward_amount * 2) / 100));
-                super._mint(teamWallet, ((reward_amount * 3) / 100));
-
-                tokensMinted = tokensMinted.add(reward_amount + ((reward_amount * 2) / 100) + ((reward_amount * 3) / 100));
-
-                IExpContract(expContract).updateMining(msg.sender, exp_reward, 0);
-                //Cannot mint more tokens than there are
-                assert(tokensMinted <= maxSupplyForEra);
-
-                //set readonly diagnostics data
-                lastRewardTo = msg.sender;
-                lastRewardAmount = reward_amount;
-                lastRewardEthBlockNumber = block.number;
-
-
-                _startNewMiningEpoch();
-
-                Mint(msg.sender, reward_amount, epochCount, challengeNumber);
-                _isMinting = false;
-                return true;
-            }
-        
+function _updateMiningPick(uint256 reward_amount) internal returns (uint256) {
+    uint256 exp_reward = 1;
+    if (miningPickClass[msg.sender] != 0) {
+        uint256 exp = IExpContract(expContract).miningExp(msg.sender);
+        uint256 lvl = ILevelContract(levelContract).getLevel(exp);
+        uint256 burnAmt = 1e18 * (100 - lvl) / 100;
+        if (miningPickBalance[msg.sender] >= burnAmt) {
+            miningPickBalance[msg.sender] -= burnAmt;
+        } else {
+            miningPickBalance[msg.sender] = 0;
         }
+    }
+
+    if (miningPickClass[msg.sender] != 0 && miningPickBalance[msg.sender] > 1e18) {
+        reward_amount += (reward_amount * (miningPickClass[msg.sender]) / 100);
+        if (miningPickClass[msg.sender] >= 2) {
+            exp_reward += (miningPickClass[msg.sender] / 2);
+        }
+    }
+    return exp_reward;
+}
+
+function _payOutRewards(uint256 reward_amount) internal {
+    _mint(address(this), ((reward_amount * 2) / 100));
+    _mint(teamWallet, ((reward_amount * 3) / 100));
+    tokensMinted = tokensMinted.add(reward_amount + ((reward_amount * 2) / 100) + ((reward_amount * 3) / 100));
+}
+
+function _setLastRewardData(uint256 reward_amount) internal {
+    // Set readonly diagnostic data
+    lastRewardTo = msg.sender;
+    lastRewardAmount = reward_amount;
+    lastRewardEthBlockNumber = block.number;
+}
 
     function internalMint(address _address, uint256 _amount) public {
         require(internalMinter[msg.sender] == true || msg.sender == owner);
