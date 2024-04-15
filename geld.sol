@@ -780,6 +780,9 @@ contract Geld is ERC20 {
     address levelContract;
     address challengeInterface;
     address simpleHookAddress;
+
+    uint256 lastBlockTimestamp;
+
     IUniswapV2Router02 public uniswapV2Router;
     address public uniswapV2Pair;
     address public constant deadAddress = address(0xdead);
@@ -1041,6 +1044,7 @@ contract Geld is ERC20 {
 function mint(uint256 nonce, bytes32 challenge_digest, uint256 challengeType) public returns (bool success) {
     require(!_isMinting, "Minting already in progress");
     require(mintOn == true);
+    require(block.timestamp > lastBlockTimestamp + 10);
     _isMinting = true;
 
     if (simpleHookAddress != address(0)) {
