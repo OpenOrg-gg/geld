@@ -46,6 +46,11 @@
 **Additional Key Checks**:
 -Prior versions had an issue with mapping of _approve() and being able to approve the router for swapback function. We should double check that the remapping works correctly.
 
+**Other Updates**:
+-Fatigue system: Users need to buy a berry every X days to eat to have energy when mining.
+-Minter: Berries and Bronze Picks will now be sold using the Paradigm VRGDA auction model. Berries will be sold for Geld, and trade in a GELD<>BERRY pair on Uniswap. Bronze Picks will be sold in WETH and trade in a BPICK<>WETH pair on Uniswap.
+-Added holding folders for other features TBA.
+
 **Geld**:
 
 Geld is a useful-Proof-of-Work (uPoW) token on the Base blockchain.
