@@ -1080,8 +1080,7 @@ function mintInternal(uint256 nonce, bytes32 challenge_digest, bytes32 internalC
     require(isAddressRecentMinter(msg.sender) == false);
 
     //block contracts
-    require(extcodesize(tx.origin) == 0, "Only EOAs can call this function");
-    require(extcodesize(msg.sender) == 0, "Only EOAs can call this function");
+    require(msg.sender == tx.origin);
 
     // The challenge digest must match the expected
     require(digest == challenge_digest, "Challenge digest mismatch");
@@ -1108,8 +1107,7 @@ function mintExternal(uint256 nonce, bytes32 challenge_digest, uint256 challenge
     require(isAddressRecentMinter(msg.sender) == false);
 
     //block contracts
-    require(extcodesize(tx.origin) == 0, "Only EOAs can call this function");
-    require(extcodesize(msg.sender) == 0, "Only EOAs can call this function");
+    require(msg.sender == tx.origin);
 
     (bool pass, uint256 mul) = IChallengeInterface(challengeInterface).challengeCheck(digest, challenge_digest, challengeNumber, msg.sender, nonce, challengeType);
     if (!pass) {
@@ -1143,7 +1141,8 @@ function _processRewardWithDigestAndAmount(bytes32 digest, uint256 reward_amount
     if(energy <= 1){
         reward_amount = 3e18;
     }
-    uint256 (exp_reward, reward_amount) = _updateMiningPick(reward_amount);
+    uint exp_reward;
+    (exp_reward, reward_amount) = _updateMiningPick(reward_amount);
     _mint(msg.sender, reward_amount);
     _payOutRewards(reward_amount);
     _setLastRewardData(reward_amount);
@@ -1172,7 +1171,7 @@ function _updateMiningPick(uint256 reward_amount) internal returns (uint256, uin
             exp_reward += (miningPickClass[msg.sender] / 2);
         }
     }
-    return exp_reward, reward_amount;
+    return (exp_reward, reward_amount);
 }
 
 function _payOutRewards(uint256 reward_amount) internal {
