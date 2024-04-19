@@ -1,5 +1,17 @@
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.20;
+pragma experimental ABIEncoderV2;
 
+/**
+ * @dev Provides information about the current execution context, including the
+ * sender of the transaction and its data. While these are generally available
+ * via msg.sender and msg.data, they should not be accessed in such a direct
+ * manner, since when dealing with meta-transactions the account sending and
+ * paying for execution may not be the actual sender (as far as an application
+ * is concerned).
+ *
+ * This contract is only required for intermediate, library-like contracts.
+ */
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
         return msg.sender;
@@ -10,6 +22,84 @@ abstract contract Context {
     }
 }
 
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ *
+ * This module is used through inheritance. It will make available the modifier
+ * `onlyOwner`, which can be applied to your functions to restrict their use to
+ * the owner.
+ */
+abstract contract Ownable is Context {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    constructor() {
+        _transferOwnership(_msgSender());
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner,
+     * thereby removing any functionality that is only available to the owner.
+     */
+    function renounceOwnership() public virtual onlyOwner {
+        _transferOwnership(address(0));
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Internal function without access restriction.
+     */
+    function _transferOwnership(address newOwner) internal virtual {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+}
+
+////// lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol
+// OpenZeppelin Contracts v4.4.0 (token/ERC20/IERC20.sol)
+
+/* pragma solidity ^0.8.0; */
+
+/**
+ * @dev Interface of the ERC20 standard as defined in the EIP.
+ */
 interface IERC20 {
     /**
      * @dev Returns the amount of tokens in existence.
@@ -158,7 +248,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * All two of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor(string memory name_, string memory symbol_) public {
+    constructor(string memory name_, string memory symbol_) {
         _name = name_;
         _symbol = symbol_;
     }
@@ -263,7 +353,9 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 
         uint256 currentAllowance = _allowances[sender][_msgSender()];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
+        unchecked {
             _approve(sender, _msgSender(), currentAllowance - amount);
+        }
 
         return true;
     }
@@ -302,7 +394,9 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
         uint256 currentAllowance = _allowances[_msgSender()][spender];
         require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+        unchecked {
             _approve(_msgSender(), spender, currentAllowance - subtractedValue);
+        }
 
         return true;
     }
@@ -333,7 +427,9 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+        unchecked {
             _balances[sender] = senderBalance - amount;
+        }
         _balances[recipient] += amount;
 
         emit Transfer(sender, recipient, amount);
@@ -380,7 +476,9 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 
         uint256 accountBalance = _balances[account];
         require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
+        unchecked {
             _balances[account] = accountBalance - amount;
+        }
         _totalSupply -= amount;
 
         emit Transfer(account, address(0), amount);
@@ -454,12 +552,223 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     ) internal virtual {}
 }
 
-interface IChallengeInterface{
-    function challengeCheck(bytes32 digest, bytes32 challenge_digest, bytes32 challengeNumber, address sender, uint256 nonce, uint256 challengeType) external view returns(bool _pass, uint256 _mul);
-    function getChallengeNumber() external view returns(bytes32, uint256);
-    function newChallengeNumber() external view returns(bytes32);
-    function getMiningDifficulty() external view returns(uint256);
-    function getMiningTarget() external view returns(uint256);
+/**
+ * @dev Wrappers over Solidity's arithmetic operations.
+ *
+ * NOTE: `SafeMath` is generally not needed starting with Solidity 0.8, since the compiler
+ * now has built in overflow checking.
+ */
+library SafeMath {
+    /**
+     * @dev Returns the addition of two unsigned integers, with an overflow flag.
+     *
+     * _Available since v3.4._
+     */
+    function tryAdd(uint256 a, uint256 b) internal pure returns (bool, uint256) {
+        unchecked {
+            uint256 c = a + b;
+            if (c < a) return (false, 0);
+            return (true, c);
+        }
+    }
+
+    /**
+     * @dev Returns the substraction of two unsigned integers, with an overflow flag.
+     *
+     * _Available since v3.4._
+     */
+    function trySub(uint256 a, uint256 b) internal pure returns (bool, uint256) {
+        unchecked {
+            if (b > a) return (false, 0);
+            return (true, a - b);
+        }
+    }
+
+    /**
+     * @dev Returns the multiplication of two unsigned integers, with an overflow flag.
+     *
+     * _Available since v3.4._
+     */
+    function tryMul(uint256 a, uint256 b) internal pure returns (bool, uint256) {
+        unchecked {
+            // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+            // benefit is lost if 'b' is also tested.
+            // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+            if (a == 0) return (true, 0);
+            uint256 c = a * b;
+            if (c / a != b) return (false, 0);
+            return (true, c);
+        }
+    }
+
+    /**
+     * @dev Returns the division of two unsigned integers, with a division by zero flag.
+     *
+     * _Available since v3.4._
+     */
+    function tryDiv(uint256 a, uint256 b) internal pure returns (bool, uint256) {
+        unchecked {
+            if (b == 0) return (false, 0);
+            return (true, a / b);
+        }
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers, with a division by zero flag.
+     *
+     * _Available since v3.4._
+     */
+    function tryMod(uint256 a, uint256 b) internal pure returns (bool, uint256) {
+        unchecked {
+            if (b == 0) return (false, 0);
+            return (true, a % b);
+        }
+    }
+
+    /**
+     * @dev Returns the addition of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `+` operator.
+     *
+     * Requirements:
+     *
+     * - Addition cannot overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a + b;
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a - b;
+    }
+
+    /**
+     * @dev Returns the multiplication of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `*` operator.
+     *
+     * Requirements:
+     *
+     * - Multiplication cannot overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a * b;
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers, reverting on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator.
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a / b;
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * reverting when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a % b;
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
+     * overflow (when the result is negative).
+     *
+     * CAUTION: This function is deprecated because it requires allocating memory for the error
+     * message unnecessarily. For custom revert reasons use {trySub}.
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        unchecked {
+            require(b <= a, errorMessage);
+            return a - b;
+        }
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers, reverting with custom message on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        unchecked {
+            require(b > 0, errorMessage);
+            return a / b;
+        }
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * reverting with custom message when dividing by zero.
+     *
+     * CAUTION: This function is deprecated because it requires allocating memory for the error
+     * message unnecessarily. For custom revert reasons use {tryMod}.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        unchecked {
+            require(b > 0, errorMessage);
+            return a % b;
+        }
+    }
 }
 
 interface IUniswapV2Factory {
@@ -491,10 +800,6 @@ interface IUniswapV2Factory {
 
     function setFeeToSetter(address) external;
 }
-
-////// src/IUniswapV2Pair.sol
-/* pragma solidity 0.8.10; */
-/* pragma experimental ABIEncoderV2; */
 
 interface IUniswapV2Pair {
     event Approval(
@@ -666,136 +971,20 @@ interface IUniswapV2Router02 {
         uint256 deadline
     ) external;
 }
-// ----------------------------------------------------------------------------
 
-// '0xBitcoin Token' contract
+contract GeldFood is ERC20, Ownable {
+    using SafeMath for uint256;
 
-// Mineable ERC20 Token using Proof Of Work
-
-//
-
-// Symbol      : GELD
-
-// Name        : Base Geld
-
-// Total supply: 210,000,000.00
-
-// Decimals    : 18
-
-//
-
-
-// ----------------------------------------------------------------------------
-
-
-
-// ----------------------------------------------------------------------------
-
-// Safe maths
-
-// ----------------------------------------------------------------------------
-
-library SafeMath {
-
-    function add(uint a, uint b) internal pure returns (uint c) {
-
-        c = a + b;
-
-        require(c >= a);
-
-    }
-
-    function sub(uint a, uint b) internal pure returns (uint c) {
-
-        require(b <= a);
-
-        c = a - b;
-
-    }
-
-    function mul(uint a, uint b) internal pure returns (uint c) {
-
-        c = a * b;
-
-        require(a == 0 || c / a == b);
-
-    }
-
-    function div(uint a, uint b) internal pure returns (uint c) {
-
-        require(b > 0);
-
-        c = a / b;
-
-    }
-
-}
-
-
-
-library ExtendedMath {
-
-
-    //return the smaller of the two inputs (a or b)
-    function limitLessThan(uint a, uint b) internal pure returns (uint c) {
-
-        if(a > b) return b;
-
-        return a;
-
-    }
-}
-
-interface IExpContract {
-    function miningExp(address _user) external view returns(uint256);
-    function updateMining(address _user, uint256 _add, uint256 _sub) external;
-
-}
-
-interface ILevelContract {
-    function getLevel(uint256 _user) external view returns(uint256);
-}
-
-interface ISimpleHook {
-    function turnCrank() external;
-}
-
-interface IFatigue {
-    function returnFatigue(address _user) external view returns (uint256);
-}
-
-// ----------------------------------------------------------------------------
-
-// ERC20 Token, with the addition of symbol, name and decimals and an
-
-// initial fixed supply
-
-// ----------------------------------------------------------------------------
-
-contract Geld is ERC20 {
-    bool private _isMinting;
-    bool public transferPause;
-    using SafeMath for uint;
-    using ExtendedMath for uint;
-
-    address owner;
-    address expContract;
-    address levelContract;
-    address challengeInterface;
-    address simpleHookAddress;
-    address fatigue;
-
-    uint256 lastBlockTimestamp;
-
-    IUniswapV2Router02 public uniswapV2Router;
-    address public uniswapV2Pair;
+    IUniswapV2Router02 public immutable uniswapV2Router;
+    address public immutable uniswapV2Pair;
     address public constant deadAddress = address(0xdead);
 
     bool private swapping;
 
     address public revShareWallet;
     address public teamWallet;
-    address public characterInfo;
+    address public geld;
+    address public minter;
 
     uint256 public maxTransactionAmount;
     uint256 public swapTokensAtAmount;
@@ -806,20 +995,9 @@ contract Geld is ERC20 {
     bool public swapEnabled = false;
 
     bool public blacklistRenounced = false;
-    address[3] public lastThreeMinters;
-    uint public index = 0;
 
     // Anti-bot and anti-whale mappings and variables
     mapping(address => bool) blacklisted;
-
-    mapping(address => bool) internalMinter;
-
-    mapping(uint256 => address) public miningPickClassToAddress;
-    mapping(address => uint) public miningPickClassAddress;
-    mapping(address => bool) public approvedMiningPicks;
-
-    mapping(address => uint256) public miningPickClass;
-    mapping(address => uint256) public miningPickBalance;
 
     uint256 public buyTotalFees;
     uint256 public buyRevShareFee;
@@ -848,98 +1026,60 @@ contract Geld is ERC20 {
     bool public preMigrationPhase = true;
     mapping(address => bool) public preMigrationTransferrable;
 
+    event UpdateUniswapV2Router(
+        address indexed newAddress,
+        address indexed oldAddress
+    );
 
-    uint public _totalSupply;
+    event ExcludeFromFees(address indexed account, bool isExcluded);
 
-    uint public latestDifficultyPeriodStarted;
+    event SetAutomatedMarketMakerPair(address indexed pair, bool indexed value);
 
+    event revShareWalletUpdated(
+        address indexed newWallet,
+        address indexed oldWallet
+    );
 
-    uint public epochCount;//number of 'blocks' mined
+    event teamWalletUpdated(
+        address indexed newWallet,
+        address indexed oldWallet
+    );
 
+    event SwapAndLiquify(
+        uint256 tokensSwapped,
+        uint256 ethReceived,
+        uint256 tokensIntoLiquidity
+    );
 
-    uint public _BLOCKS_PER_READJUSTMENT = 2048;
-
-
-    //a little number
-    uint public  _MINIMUM_TARGET = 2**15;
-
-
-      //a big number is easier ; just find a solution that is smaller
-    //uint public  _MAXIMUM_TARGET = 2**224;  bitcoin uses 224
-    uint public  _MAXIMUM_TARGET = 2**234;
-
-
-    uint public miningTarget;
-
-    bytes32 public challengeNumber;   //generate a new one when a new reward is minted
-
-
-    uint public rewardEra;
-    uint public maxSupplyForEra;
-
-
-    address public lastRewardTo;
-    uint public lastRewardAmount;
-    uint public lastRewardEthBlockNumber;
-
-    bool locked = false;
-    bool mintOn = false;
-
-    mapping(bytes32 => bytes32) solutionForChallenge;
-
-    uint public tokensMinted;
-
-    mapping(address => uint) balances;
-
-
-    mapping(address => mapping(address => uint)) allowed;
-
-
-    event Mint(address indexed from, uint reward_amount, uint epochCount, bytes32 newChallengeNumber);
-
-    // ------------------------------------------------------------------------
-
-    // Constructor
-
-    // ------------------------------------------------------------------------
-
-    constructor() ERC20("GELD", "Base Geld") {
-        owner = msg.sender;
-        _totalSupply = 2_100_000_000 * 1e18;
-
-        if(locked) revert();
-        locked = true;
-
-        tokensMinted = 0;
-
-        rewardEra = 0;
-        maxSupplyForEra = _totalSupply.div(2);
-
-        miningTarget = _MAXIMUM_TARGET;
-
-        latestDifficultyPeriodStarted = block.number;
-
-        _startNewMiningEpoch();
-
+    constructor(address _geld, address _minter) ERC20("Berry", "BERRY") {
         IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(
             0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24
         );
+
+        geld = _geld;
+        minter = _minter;
 
         excludeFromMaxTransaction(address(_uniswapV2Router), true);
         uniswapV2Router = _uniswapV2Router;
 
         uniswapV2Pair = IUniswapV2Factory(0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6)
-            .createPair(address(this), 0x4200000000000000000000000000000000000006);
+            .createPair(address(this), address(geld));
         excludeFromMaxTransaction(address(uniswapV2Pair), true);
         _setAutomatedMarketMakerPair(address(uniswapV2Pair), true);
 
         uint256 _buyRevShareFee = 1;
         uint256 _buyLiquidityFee = 1;
-        uint256 _buyTeamFee = 1;
+        uint256 _buyTeamFee = 2;
 
-        uint256 _sellRevShareFee = 1;
-        uint256 _sellLiquidityFee = 2;
+        uint256 _sellRevShareFee = 2;
+        uint256 _sellLiquidityFee = 1;
         uint256 _sellTeamFee = 2;
+
+        uint256 totalSupply = 10_000_000_000 * 1e18;
+
+        maxTransactionAmount = 10_000 * 1e18; // 1%
+        maxWallet = 10_000 * 1e18; // 1% 
+        swapTokensAtAmount = (totalSupply * 5) / 10000; // 0.05% 
 
         buyRevShareFee = _buyRevShareFee;
         buyLiquidityFee = _buyLiquidityFee;
@@ -951,395 +1091,150 @@ contract Geld is ERC20 {
         sellTeamFee = _sellTeamFee;
         sellTotalFees = sellRevShareFee + sellLiquidityFee + sellTeamFee;
 
-        maxTransactionAmount = 2_100_000_000 * 10e18; //override
-        maxWallet = 2_100_000_000 * 10e18; // override 
-        swapTokensAtAmount = (100_000_000 * 5) / 10000; // 0.05% 
-
-        revShareWallet = address(0xd5F617f173dDBcFA516Fe6281d2619134F98a839); // set as revShare wallet
+        revShareWallet = address(geld); // set as revShare wallet
         teamWallet = address(0xd5F617f173dDBcFA516Fe6281d2619134F98a839); // set as team wallet
 
         // exclude from paying fees or having max transaction amount
-        excludeFromFees(owner, true);
+        excludeFromFees(owner(), true);
         excludeFromFees(address(this), true);
         excludeFromFees(address(0xdead), true);
 
-        excludeFromMaxTransaction(owner, true);
+        excludeFromMaxTransaction(owner(), true);
         excludeFromMaxTransaction(address(this), true);
         excludeFromMaxTransaction(address(0xdead), true);
 
-        preMigrationTransferrable[owner] = true;
-        _isMinting = false;
-        mintOn = true;
-
-        levelContract = address(0xF5adc59f1aFb16dA0c99E5fbfE0DB42CcBD11038);
-        expContract = address(0x53a5D6172e1e8754e97BDCBdB0C4b726d3d7e7b1);
-
+        preMigrationTransferrable[owner()] = true;
+        limitsInEffect = false;
+        tradingActive = true;
+        swapEnabled = true;
+        preMigrationPhase = false;
     }
 
-    function setMiningPick(address _address, uint256 _class) public {
-        require(msg.sender == owner);
-        miningPickClassAddress[_address] = _class;
+    receive() external payable {}
+
+    // once enabled, can never be turned off
+    function enableTrading() external onlyOwner {
+        tradingActive = true;
+        swapEnabled = true;
+        preMigrationPhase = false;
     }
 
-    function setSimpleHook(address _address) public {
-        require(msg.sender == owner);
-        simpleHookAddress = _address;
+    // remove limits after token is stable
+    function removeLimits() external onlyOwner returns (bool) {
+        limitsInEffect = false;
+        return true;
     }
 
-    function updateBlocksPer(uint256 _blocks) public {
-        require(msg.sender == owner);
-        _BLOCKS_PER_READJUSTMENT = _blocks;
+    // change the minimum amount of tokens to sell from fees
+    function updateSwapTokensAtAmount(uint256 newAmount)
+        external
+        onlyOwner
+        returns (bool)
+    {
+        require(
+            newAmount >= (totalSupply() * 1) / 100000,
+            "Swap amount cannot be lower than 0.001% total supply."
+        );
+        require(
+            newAmount <= (totalSupply() * 50) / 1000,
+            "Swap amount cannot be higher than 0.5% total supply."
+        );
+        swapTokensAtAmount = newAmount;
+        return true;
     }
 
-    function setMint(bool _bool) public {
-        require(msg.sender == owner);
-        mintOn = _bool;
+    function updateMaxTxnAmount(uint256 newNum) external onlyOwner {
+        require(
+            newNum >= ((totalSupply() * 5) / 1000) / 1e18,
+            "Cannot set maxTransactionAmount lower than 0.5%"
+        );
+        maxTransactionAmount = newNum * (10**18);
     }
 
-    function setMiningPickToAddress(address _address, uint256 _class) public {
-        require(msg.sender == owner);
-        miningPickClassToAddress[_class] = _address;
+    function updateMaxWalletAmount(uint256 newNum) external onlyOwner {
+        require(
+            newNum >= ((totalSupply() * 10) / 1000) / 1e18,
+            "Cannot set maxWallet lower than 1.0%"
+        );
+        maxWallet = newNum * (10**18);
     }
 
-    function approveMiningPick(address _address, bool _bool) public {
-        require(msg.sender == owner);
-        approvedMiningPicks[_address] = _bool;
+    function excludeFromMaxTransaction(address updAds, bool isEx)
+        public
+        onlyOwner
+    {
+        _isExcludedMaxTransactionAmount[updAds] = isEx;
     }
 
-    function setLevelsContract(address _address) public {
-        require(msg.sender == owner);
-        levelContract = _address;
-    }    
-    
-    function setExpContract(address _address) public {
-        require(msg.sender == owner);
-        expContract = _address;
+    // only use to disable contract sales if absolutely necessary (emergency use only)
+    function updateSwapEnabled(bool enabled) external onlyOwner {
+        swapEnabled = enabled;
     }
 
-    function depositPicks(address _address, uint256 _amount) public {
-        require(approvedMiningPicks[_address] == true);
-        if(miningPickClass[msg.sender] == miningPickClassAddress[_address]){
-            require(IERC20(_address).transferFrom(msg.sender, address(this), _amount));
-            miningPickBalance[msg.sender] += _amount;
-        }
-        if(miningPickClass[msg.sender] == 0){
-            require(IERC20(_address).transferFrom(msg.sender, address(this), _amount));
-            miningPickBalance[msg.sender] += _amount;
-            miningPickClass[msg.sender] = miningPickClassAddress[_address];
-        }
+    function updateBuyFees(
+        uint256 _revShareFee,
+        uint256 _liquidityFee,
+        uint256 _teamFee
+    ) external onlyOwner {
+        buyRevShareFee = _revShareFee;
+        buyLiquidityFee = _liquidityFee;
+        buyTeamFee = _teamFee;
+        buyTotalFees = buyRevShareFee + buyLiquidityFee + buyTeamFee;
+        require(buyTotalFees <= 5, "Buy fees must be <= 5.");
     }
 
-    function resetStuckUserPicks(address _address) public {
-        require(msg.sender == owner);
-        miningPickClass[_address] = 0;
-        miningPickBalance[_address] = 0;
+    function updateSellFees(
+        uint256 _revShareFee,
+        uint256 _liquidityFee,
+        uint256 _teamFee
+    ) external onlyOwner {
+        sellRevShareFee = _revShareFee;
+        sellLiquidityFee = _liquidityFee;
+        sellTeamFee = _teamFee;
+        sellTotalFees = sellRevShareFee + sellLiquidityFee + sellTeamFee;
+        require(sellTotalFees <= 5, "Sell fees must be <= 5.");
     }
 
-    function withdrawPicks(address _address, uint256 _amount) public {
-        if(_amount >= miningPickBalance[msg.sender] && miningPickClass[msg.sender] == miningPickClassAddress[_address]){
-            require(IERC20(_address).transfer(msg.sender, _amount));
-            miningPickBalance[msg.sender] -= _amount;
-            if(miningPickBalance[msg.sender] == 0){
-                miningPickClass[msg.sender] = 0;
-            }
-        }
+    function excludeFromFees(address account, bool excluded) public onlyOwner {
+        _isExcludedFromFees[account] = excluded;
+        emit ExcludeFromFees(account, excluded);
     }
 
-function mint(uint256 nonce, bytes32 challenge_digest, uint256 challengeType) public returns (bool success) {
-    require(!_isMinting, "Minting already in progress");
-    require(mintOn == true);
-    require(block.timestamp > lastBlockTimestamp + 10);
-    _isMinting = true;
+    function setAutomatedMarketMakerPair(address pair, bool value)
+        public
+        onlyOwner
+    {
+        require(
+            pair != uniswapV2Pair,
+            "The pair cannot be removed from automatedMarketMakerPairs"
+        );
 
-    if (simpleHookAddress != address(0)) {
-        ISimpleHook(simpleHookAddress).turnCrank();
+        _setAutomatedMarketMakerPair(pair, value);
     }
 
-    bytes32 internalChallengeNumber = challengeNumber;
+    function _setAutomatedMarketMakerPair(address pair, bool value) private {
+        automatedMarketMakerPairs[pair] = value;
 
-    if (challengeInterface == address(0)) {
-        success = mintInternal(nonce, challenge_digest, internalChallengeNumber);
-    } else {
-        success = mintExternal(nonce, challenge_digest, challengeType);
+        emit SetAutomatedMarketMakerPair(pair, value);
     }
 
-    if (success) {
-        _startNewMiningEpoch();
-        emit Mint(msg.sender, lastRewardAmount, epochCount, challengeNumber);
+    function updateRevShareWallet(address newRevShareWallet) external onlyOwner {
+        emit revShareWalletUpdated(newRevShareWallet, revShareWallet);
+        revShareWallet = newRevShareWallet;
     }
 
-    _isMinting = false;
-    return success;
-}
-
-function mintInternal(uint256 nonce, bytes32 challenge_digest, bytes32 internalChallengeNumber) internal returns (bool) {
-    // The PoW must contain work that includes a recent ethereum block hash (challenge number) and the msg.sender's address to prevent MITM attacks
-    bytes32 digest = keccak256(abi.encodePacked(challengeNumber, msg.sender, nonce));
-
-    //require not recent minter
-    require(isAddressRecentMinter(msg.sender) == false);
-
-    //block contracts
-    require(extcodesize(tx.origin) == 0, "Only EOAs can call this function");
-    require(extcodesize(msg.sender) == 0, "Only EOAs can call this function");
-
-    // The challenge digest must match the expected
-    require(digest == challenge_digest, "Challenge digest mismatch");
-
-    // The digest must be smaller than the target
-    require(uint256(digest) <= miningTarget, "Digest not small enough");
-
-    bytes32 solution = solutionForChallenge[internalChallengeNumber];
-    solutionForChallenge[internalChallengeNumber] = digest;
-    require(solution == 0, "Duplicate solution");  // Prevent the same answer from awarding twice
-
-    //add to last 3 minters
-    lastThreeMinters[index] = msg.sender;
-    index = (index + 1) % 3;
-
-    return _processReward();
-}
-
-function mintExternal(uint256 nonce, bytes32 challenge_digest, uint256 challengeType) internal returns (bool) {
-    // The PoW must contain work that includes a recent ethereum block hash (challenge number) and the msg.sender's address to prevent MITM attacks
-    bytes32 digest = keccak256(abi.encodePacked(challengeNumber, msg.sender, nonce));
-
-    //require not recent minter
-    require(isAddressRecentMinter(msg.sender) == false);
-
-    //block contracts
-    require(extcodesize(tx.origin) == 0, "Only EOAs can call this function");
-    require(extcodesize(msg.sender) == 0, "Only EOAs can call this function");
-
-    (bool pass, uint256 mul) = IChallengeInterface(challengeInterface).challengeCheck(digest, challenge_digest, challengeNumber, msg.sender, nonce, challengeType);
-    if (!pass) {
-        return false;
+    function updateTeamWallet(address newWallet) external onlyOwner {
+        emit teamWalletUpdated(newWallet, teamWallet);
+        teamWallet = newWallet;
     }
 
-    if (mul > 1) {
-        uint256 reward_amount = getMiningReward() * mul;
-        return _processRewardWithAmount(reward_amount);
-        lastThreeMinters[index] = msg.sender;
-        index = (index + 1) % 3;
-    } else {
-        return _processReward();
-        lastThreeMinters[index] = msg.sender;
-        index = (index + 1) % 3;
-    }
-}
-
-function _processReward() internal returns (bool) {
-    uint256 reward_amount = getMiningReward();
-    return _processRewardWithAmount(reward_amount);
-}
-
-function _processRewardWithAmount(uint256 reward_amount) internal returns (bool) {
-    bytes32 dig = bytes32(0);
-    return _processRewardWithDigestAndAmount(dig, reward_amount);
-}
-
-function _processRewardWithDigestAndAmount(bytes32 digest, uint256 reward_amount) internal returns (bool) {
-    uint256 energy = IFatigue(fatigue).returnFatigue(msg.sender);
-    if(energy <= 1){
-        reward_amount = 3e18;
-    }
-    uint256 (exp_reward, reward_amount) = _updateMiningPick(reward_amount);
-    _mint(msg.sender, reward_amount);
-    _payOutRewards(reward_amount);
-    _setLastRewardData(reward_amount);
-    IExpContract(expContract).updateMining(msg.sender, exp_reward, 0);
-
-    assert(tokensMinted <= maxSupplyForEra);
-    return true;
-}
-
-function _updateMiningPick(uint256 reward_amount) internal returns (uint256, uint256) {
-    uint256 exp_reward = 1;
-    if (miningPickClass[msg.sender] != 0) {
-        uint256 exp = IExpContract(expContract).miningExp(msg.sender);
-        uint256 lvl = ILevelContract(levelContract).getLevel(exp);
-        uint256 burnAmt = 1e18 * (100 - lvl) / 100;
-        if (miningPickBalance[msg.sender] >= burnAmt) {
-            miningPickBalance[msg.sender] -= burnAmt;
-        } else {
-            miningPickBalance[msg.sender] = 0;
-        }
+    function isExcludedFromFees(address account) public view returns (bool) {
+        return _isExcludedFromFees[account];
     }
 
-    if (miningPickClass[msg.sender] != 0 && miningPickBalance[msg.sender] > 1e18) {
-        reward_amount += (reward_amount * (miningPickClass[msg.sender]) / 100);
-        if (miningPickClass[msg.sender] >= 2) {
-            exp_reward += (miningPickClass[msg.sender] / 2);
-        }
+    function isBlacklisted(address account) public view returns (bool) {
+        return blacklisted[account];
     }
-    return exp_reward, reward_amount;
-}
-
-function _payOutRewards(uint256 reward_amount) internal {
-    _mint(address(this), ((reward_amount * 2) / 100));
-    _mint(teamWallet, ((reward_amount * 3) / 100));
-    tokensMinted = tokensMinted.add(reward_amount + ((reward_amount * 2) / 100) + ((reward_amount * 3) / 100));
-}
-
-function _setLastRewardData(uint256 reward_amount) internal {
-    // Set readonly diagnostic data
-    lastRewardTo = msg.sender;
-    lastRewardAmount = reward_amount;
-    lastRewardEthBlockNumber = block.number;
-}
-
-    function internalMint(address _address, uint256 _amount) public {
-        require(internalMinter[msg.sender] == true || msg.sender == owner);
-        super._mint(_address, _amount);
-        tokensMinted = tokensMinted.add(_amount);
-    }
-
-    function editMinter(address _address, bool _bool) public {
-        require(msg.sender == owner);
-        internalMinter[_address] = _bool;
-    }
-
-    //a new 'block' to be mined
-    function _startNewMiningEpoch() internal {
-
-      //if max supply for the era will be exceeded next reward round then enter the new era before that happens
-
-      if( tokensMinted.add(getMiningReward()) > maxSupplyForEra)
-      {
-        rewardEra = rewardEra + 1;
-      }
-
-      //set the next minted supply at which the era will change
-      // total supply is 21000000000000000  because of 18 decimal places
-      maxSupplyForEra = _totalSupply - _totalSupply.div( 2**(rewardEra + 1));
-
-      epochCount = epochCount.add(1);
-
-      //every so often, readjust difficulty. Dont readjust when deploying
-      if(epochCount % _BLOCKS_PER_READJUSTMENT == 0)
-      {
-        _reAdjustDifficulty();
-      }
-
-
-      //make the latest ethereum block hash a part of the next challenge for PoW to prevent pre-mining future blocks
-      //do this last since this is a protection mechanism in the mint() function
-      if(challengeInterface == address(0)){
-        challengeNumber = blockhash(block.number - 1);
-      } else {
-        challengeNumber = blockhash(block.number - 1);
-        challengeNumber = IChallengeInterface(challengeInterface).newChallengeNumber();
-      }
-    }
-
-
-    //https://en.bitcoin.it/wiki/Difficulty#What_is_the_formula_for_difficulty.3F
-    //as of 2017 the bitcoin difficulty was up to 17 zeroes, it was only 8 in the early days
-
-    //readjust the target by 5 percent
-    function _reAdjustDifficulty() internal {
-
-
-        uint ethBlocksSinceLastDifficultyPeriod = block.number - latestDifficultyPeriodStarted;
-
-        //we want miners to spend 10 minutes to mine each 'block', about 300 base blocks = one geld epoch
-        uint epochsMined = _BLOCKS_PER_READJUSTMENT; //256
-
-        uint targetEthBlocksPerDiffPeriod = epochsMined * 300; //should be 60 times slower than ethereum
-
-        //if there were less eth blocks passed in time than expected
-        if( ethBlocksSinceLastDifficultyPeriod < targetEthBlocksPerDiffPeriod )
-        {
-          uint excess_block_pct = (targetEthBlocksPerDiffPeriod.mul(100)).div( ethBlocksSinceLastDifficultyPeriod );
-
-          uint excess_block_pct_extra = excess_block_pct.sub(100).limitLessThan(1000);
-          // If there were 5% more blocks mined than expected then this is 5.  If there were 100% more blocks mined than expected then this is 100.
-
-          //make it harder
-          miningTarget = miningTarget.sub(miningTarget.div(2000).mul(excess_block_pct_extra));   //by up to 50 %
-        }else{
-          uint shortage_block_pct = (ethBlocksSinceLastDifficultyPeriod.mul(100)).div( targetEthBlocksPerDiffPeriod );
-
-          uint shortage_block_pct_extra = shortage_block_pct.sub(100).limitLessThan(1000); //always between 0 and 1000
-
-          //make it easier
-          miningTarget = miningTarget.add(miningTarget.div(2000).mul(shortage_block_pct_extra));   //by up to 50 %
-        }
-
-
-
-        latestDifficultyPeriodStarted = block.number;
-
-        if(miningTarget < _MINIMUM_TARGET) //very difficult
-        {
-          miningTarget = _MINIMUM_TARGET;
-        }
-
-        if(miningTarget > _MAXIMUM_TARGET) //very easy
-        {
-          miningTarget = _MAXIMUM_TARGET;
-        }
-    }
-
-
-    //this is a recent ethereum block hash, used to prevent pre-mining future blocks
-    function getChallengeNumber() public view returns (bytes32, uint) {
-        if(challengeInterface == address(0)){
-            return (challengeNumber, 0);
-        } else {
-            return IChallengeInterface(challengeInterface).getChallengeNumber();
-        }
-        
-    }
-
-    //the number of zeroes the digest of the PoW solution requires.  Auto adjusts
-     function getMiningDifficulty() public view returns (uint) {
-        if(challengeInterface == address(0)){
-            return _MAXIMUM_TARGET.div(miningTarget);
-        } else {
-            return IChallengeInterface(challengeInterface).getMiningDifficulty();
-        }
-    }
-
-    function getMiningTarget() public view returns (uint) {
-        if(challengeInterface == address(0)){
-            return miningTarget;
-        } else {
-            return IChallengeInterface(challengeInterface).getMiningTarget();
-        }
-   }
-
-    //210m coins total
-    //reward begins at 16000 and is cut in half every reward era (as tokens are mined)
-    function getMiningReward() public view returns (uint) {
-        //once we get half way thru the coins, only get 8000 per block
-
-         //every reward era, the reward amount halves.
-
-         return (16000 * 10**uint(18)).div( 2**rewardEra ) ;
-
-    }
-
-    //help debug mining software
-    function getMintDigest(uint256 nonce, bytes32 challenge_digest, bytes32 challenge_number) public view returns (bytes32 digesttest) {
-
-        bytes32 digest = keccak256(abi.encodePacked(challenge_number,msg.sender,nonce));
-
-        return digest;
-
-      }
-
-        //help debug mining software
-      function checkMintSolution(uint256 nonce, bytes32 challenge_digest, bytes32 challenge_number, uint testTarget) public view returns (bool success) {
-
-          bytes32 digest = keccak256(abi.encodePacked(challenge_number,msg.sender,nonce));
-
-          if(uint256(digest) > testTarget) revert();
-
-          return (digest == challenge_digest);
-
-        }
-
 
     function _transfer(
         address from,
@@ -1350,7 +1245,6 @@ function _setLastRewardData(uint256 reward_amount) internal {
         require(to != address(0), "ERC20: transfer to the zero address");
         require(!blacklisted[from],"Sender blacklisted");
         require(!blacklisted[to],"Receiver blacklisted");
-        require(transferPause == false);
 
         if (preMigrationPhase) {
             require(preMigrationTransferrable[from], "Not authorized to transfer pre-migration.");
@@ -1363,8 +1257,8 @@ function _setLastRewardData(uint256 reward_amount) internal {
 
         if (limitsInEffect) {
             if (
-                from != owner &&
-                to != owner &&
+                from != owner() &&
+                to != owner() &&
                 to != address(0) &&
                 to != address(0xdead) &&
                 !swapping
@@ -1462,131 +1356,41 @@ function _setLastRewardData(uint256 reward_amount) internal {
         super._transfer(from, to, amount);
     }
 
+    function swapTokensForEth(uint256 tokenAmount) private {
+        // generate the uniswap pair path of token -> weth
+        address[] memory path = new address[](2);
+        path[0] = address(this);
+        path[1] = address(geld);
 
-    // ------------------------------------------------------------------------
+        _approve(address(this), address(uniswapV2Router), tokenAmount);
 
-    // Owner can transfer out any accidentally sent ERC20 tokens
-
-    // ------------------------------------------------------------------------
-
-    function transferAnyERC20Token(address tokenAddress, uint tokens) public returns (bool success) {
-        require(msg.sender == owner);
-        return IERC20(tokenAddress).transfer(owner, tokens);
-
-    }
-
-       // change the minimum amount of tokens to sell from fees
-    function updateSwapTokensAtAmount(uint256 newAmount)
-        external
-        returns (bool)
-    {
-        require(msg.sender == owner);
-        swapTokensAtAmount = newAmount;
-        return true;
-    }
-
-        function excludeFromMaxTransaction(address updAds, bool isEx)
-        public
-    {
-        require(msg.sender == owner);
-        _isExcludedMaxTransactionAmount[updAds] = isEx;
-    }
-
-        function updateBuyFees(
-        uint256 _revShareFee,
-        uint256 _liquidityFee,
-        uint256 _teamFee
-    ) external {
-        require(msg.sender == owner);
-        buyRevShareFee = _revShareFee;
-        buyLiquidityFee = _liquidityFee;
-        buyTeamFee = _teamFee;
-        buyTotalFees = buyRevShareFee + buyLiquidityFee + buyTeamFee;
-    }
-
-    function updateSellFees(
-        uint256 _revShareFee,
-        uint256 _liquidityFee,
-        uint256 _teamFee
-    ) external {
-        require(msg.sender == owner);
-        sellRevShareFee = _revShareFee;
-        sellLiquidityFee = _liquidityFee;
-        sellTeamFee = _teamFee;
-        sellTotalFees = sellRevShareFee + sellLiquidityFee + sellTeamFee;
-    }
-
-    function excludeFromFees(address account, bool excluded) public {
-        require(msg.sender == owner);
-        _isExcludedFromFees[account] = excluded;
-    }
-
-    function setAutomatedMarketMakerPair(address pair, bool value)
-        public
-    {
-        require(msg.sender == owner);
-        require(
-            pair != uniswapV2Pair,
-            "The pair cannot be removed from automatedMarketMakerPairs"
+        // make the swap
+        uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            tokenAmount,
+            0, // accept any amount of ETH
+            path,
+            address(this),
+            block.timestamp
         );
-
-        _setAutomatedMarketMakerPair(pair, value);
     }
 
-    function repairPair(address _address) public {
-        require(msg.sender == owner);
-        IUniswapV2Pair uniswapV2Pair = IUniswapV2Pair(_address);
-    }
+    function addLiquidity(uint256 tokenAmount, uint256 ethAmount) private {
+        // approve token transfer to cover all possible scenarios
+        _approve(address(this), address(uniswapV2Router), tokenAmount);
 
-    function repairRouter(address _address) public {
-        require(msg.sender == owner);
-        IUniswapV2Router02 uniswapV2Router = IUniswapV2Router02(_address);
-    }
-
-    function _setAutomatedMarketMakerPair(address pair, bool value) private {
-        automatedMarketMakerPairs[pair] = value;
-    }
-
-    function updateRevShareWallet(address newRevShareWallet) external {
-        require(msg.sender == owner);
-        revShareWallet = newRevShareWallet;
-    }
-
-    function updateTeamWallet(address newWallet) external {
-        require(msg.sender == owner);
-        teamWallet = newWallet;
-    }
-
-    function isExcludedFromFees(address account) public view returns (bool) {
-        return _isExcludedFromFees[account];
-    }
-
-    function isBlacklisted(address account) public view returns (bool) {
-        return blacklisted[account];
-    }
-
-    function pauseTransfer(bool _bool) public {
-        require(msg.sender == owner);
-        transferPause = _bool;
-    }
-
-    // once enabled, can never be turned off
-    function enableTrading() external {
-        require(msg.sender == owner);
-        tradingActive = true;
-        swapEnabled = true;
-        preMigrationPhase = false;
-    }
-
-    // remove limits after token is stable
-    function removeLimits() external returns (bool) {
-        require(msg.sender == owner);
-        limitsInEffect = false;
-        return true;
+        // add the liquidity
+        uniswapV2Router.addLiquidityETH{value: ethAmount}(
+            address(this),
+            tokenAmount,
+            0, // slippage is unavoidable
+            0, // slippage is unavoidable
+            owner(),
+            block.timestamp
+        );
     }
 
     function swapBack() private {
-        uint256 contractBalance = balanceOf(address(this));
+        uint256 contractBalance = IERC20(geld).balanceOf(address(this));
         uint256 totalTokensToSwap = tokensForLiquidity +
             tokensForRevShare +
             tokensForTeam;
@@ -1606,11 +1410,11 @@ function _setLastRewardData(uint256 reward_amount) internal {
             2;
         uint256 amountToSwapForETH = contractBalance.sub(liquidityTokens);
 
-        uint256 initialETHBalance = address(this).balance;
+        uint256 initialETHBalance = IERC20(geld).balanceOf(address(this));
 
         swapTokensForEth(amountToSwapForETH);
 
-        uint256 ethBalance = address(this).balance.sub(initialETHBalance);
+        uint256 ethBalance = IERC20(geld).balanceOf(address(this)).sub(initialETHBalance);
 
         uint256 ethForRevShare = ethBalance.mul(tokensForRevShare).div(totalTokensToSwap - (tokensForLiquidity / 2));
         
@@ -1622,31 +1426,32 @@ function _setLastRewardData(uint256 reward_amount) internal {
         tokensForRevShare = 0;
         tokensForTeam = 0;
 
-        (success, ) = address(teamWallet).call{value: ethForTeam}("");
+        IERC20(geld).transfer(teamWallet, ethForTeam);
 
         if (liquidityTokens > 0 && ethForLiquidity > 0) {
             addLiquidity(liquidityTokens, ethForLiquidity);
+            emit SwapAndLiquify(
+                amountToSwapForETH,
+                ethForLiquidity,
+                tokensForLiquidity
+            );
         }
-
-        (success, ) = address(revShareWallet).call{value: address(this).balance}("");
+        IERC20(geld).transfer(revShareWallet, IERC20(geld).balanceOfAddress(this));
     }
 
-    function withdrawStuckGeld() external {
-        require(msg.sender == owner);
+    function withdrawStuckUnibot() external onlyOwner {
         uint256 balance = IERC20(address(this)).balanceOf(address(this));
         IERC20(address(this)).transfer(msg.sender, balance);
         payable(msg.sender).transfer(address(this).balance);
     }
 
-    function withdrawStuckToken(address _token, address _to) external {
-        require(msg.sender == owner);
+    function withdrawStuckToken(address _token, address _to) external onlyOwner {
         require(_token != address(0), "_token address cannot be 0");
         uint256 _contractBalance = IERC20(_token).balanceOf(address(this));
         IERC20(_token).transfer(_to, _contractBalance);
     }
 
-    function withdrawStuckEth(address toAddr) external {
-        require(msg.sender == owner);
+    function withdrawStuckEth(address toAddr) external onlyOwner {
         (bool success, ) = toAddr.call{
             value: address(this).balance
         } ("");
@@ -1654,97 +1459,50 @@ function _setLastRewardData(uint256 reward_amount) internal {
     }
 
     // @dev team renounce blacklist commands
-    function renounceBlacklist() public {
-        require(msg.sender == owner);
+    function renounceBlacklist() public onlyOwner {
         blacklistRenounced = true;
     }
 
-    function blacklist(address _addr) public {
-        require(msg.sender == owner);
+    function blacklist(address _addr) public onlyOwner {
         require(!blacklistRenounced, "Team has revoked blacklist rights");
         require(
-            _addr != address(uniswapV2Pair) && _addr != address(0x2626664c2603336E57B271c5C0b26F421741e481), 
+            _addr != address(uniswapV2Pair) && _addr != address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D), 
             "Cannot blacklist token's v2 router or v2 pool."
         );
         blacklisted[_addr] = true;
     }
 
     // @dev blacklist v3 pools; can unblacklist() down the road to suit project and community
-    function blacklistLiquidityPool(address lpAddress) public {
-        require(msg.sender == owner);
+    function blacklistLiquidityPool(address lpAddress) public onlyOwner {
         require(!blacklistRenounced, "Team has revoked blacklist rights");
         require(
-            lpAddress != address(uniswapV2Pair) && lpAddress != address(0x2626664c2603336E57B271c5C0b26F421741e481), 
+            lpAddress != address(uniswapV2Pair) && lpAddress != address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D), 
             "Cannot blacklist token's v2 router or v2 pool."
         );
         blacklisted[lpAddress] = true;
     }
 
     // @dev unblacklist address; not affected by blacklistRenounced incase team wants to unblacklist v3 pools down the road
-    function unblacklist(address _addr) public {
-        require(msg.sender == owner);
+    function unblacklist(address _addr) public onlyOwner {
         blacklisted[_addr] = false;
     }
 
-    function setPreMigrationTransferable(address _addr, bool isAuthorized) public {
-        require(msg.sender == owner);
+    function setPreMigrationTransferable(address _addr, bool isAuthorized) public onlyOwner {
         preMigrationTransferrable[_addr] = isAuthorized;
         excludeFromFees(_addr, isAuthorized);
         excludeFromMaxTransaction(_addr, isAuthorized);
     }
 
-    receive() external payable {}
-
-    function addLiquidity(uint256 tokenAmount, uint256 ethAmount) private {
-        // approve token transfer to cover all possible scenarios
-        approve(address(uniswapV2Router), tokenAmount);
-
-        // add the liquidity
-        uniswapV2Router.addLiquidityETH{value: ethAmount}(
-            address(this),
-            tokenAmount,
-            0, // slippage is unavoidable
-            0, // slippage is unavoidable
-            owner,
-            block.timestamp
-        );
+    function mint(address _addr, uint256 _amount) public {
+        require(msg.sender == minter);
+        _mint(_addr, _amount);
     }
 
-    function swapTokensForEth(uint256 tokenAmount) private {
-        // generate the uniswap pair path of token -> weth
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = uniswapV2Router.WETH();
-
-        approve(address(uniswapV2Router), tokenAmount);
-
-        // make the swap
-        uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(
-            tokenAmount,
-            0, // accept any amount of ETH
-            path,
-            address(this),
-            block.timestamp
-        );
+    function updateMinter(address _minter) public onlyOwner {
+        minter = _minter;
     }
 
-    function changeChallengeInterface(address _address) public {
-        require(msg.sender == owner);
-        challengeInterface = _address;
+    function updateGeld(address _geld) public onlyOwner {
+        geld = _geld;
     }
-
-    function setOwner(address _address) public {
-        require(msg.sender == owner);
-        owner = _address;
-    }
-
-    function isAddressRecentMinter(address _address) public view returns (bool) {
-        for (uint i = 0; i < 3; i++) {
-            if (lastThreeMinters[i] == _address) {
-                return true;
-            }
-        }
-        return false;
-    }
-
 }
